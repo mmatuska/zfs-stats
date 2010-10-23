@@ -1,0 +1,12 @@
+# $Id$
+#
+# zfs-stats changelog
+#
+# Copyright (c) 2008 Ben Rockwood (benr@cuddletech.com)
+# Copyright (c) 2010 Jason J. Hellenthal <jhell@dataix.net>,
+# Copyright (c) 2010 Martin Matuska <mm@FreeBSD.org>
+# All rights reserved.
+#
+2010-10-23 <mm@FreeBSD.org>
+	* Avoid division by zero (reported by beat@FreeBSD.org)
+	* Import version 1.0 into SVN

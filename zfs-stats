@@ -100,6 +100,11 @@ sub hline()
 	print "------------------------------------------------------------------------\n";
 }
 
+sub perc
+{
+	return ( $_[1] != 0 ) ? 100*($_[0] / $_[1]) : 0;
+}
+
 use Getopt::Std;
 my $opt_string = 'ABDFHLMVZahpus';
 getopts( "$opt_string", \%opt ) or usage();
@@ -176,8 +181,8 @@ my $phys_memory = `sysctl -n 'hw.physmem'`;
 my $ktext = `kldstat | awk \'BEGIN {print "16i 0";} NR>1 {print toupper(\$4) "+"} END {print "p"}\' | dc`;
 my $kdata = `vmstat -m | sed -Ee '1s/.*/0/;s/.* ([0-9]+)K.*/\\1+/;\$s/\$/1024*p/' | dc`;
 my $kmem = ( $ktext + $kdata );
-my $ktext_perc = (100 * ( $ktext / $kmem ));
-my $kdata_perc = (100 * ( $kdata / $kmem ));
+my $ktext_perc = perc($ktext,$kmem);
+my $kdata_perc = perc($kdata,$kmem);
 my $throttle = ${Kstat}->{zfs}->{0}->{arcstats}->{memory_throttle_count};
 
 printf("ZFS Subsystem Report\t\t\t\t%s\n", $daydate);
@@ -251,12 +256,13 @@ if ($showarc != 0) {
 	my $target_size = ${Kstat}->{zfs}->{0}->{arcstats}->{c};
 	my $target_min_size = ${Kstat}->{zfs}->{0}->{arcstats}->{c_min};
 	my $target_max_size = ${Kstat}->{zfs}->{0}->{arcstats}->{c_max};
-	my $target_size_ratio = ($target_max_size / $target_min_size);
-	my $target_size_perc = 100*($target_size / $target_max_size);
-	my $target_size_min_perc = 100*($target_min_size / $target_max_size);
+	my $target_size_ratio = ( $target_min_size != 0 ) ?
+		($target_max_size / $target_min_size) : 0;
+	my $target_size_perc = perc($target_size,$target_max_size);
+	my $target_size_min_perc = perc($target_min_size,$target_max_size);
 
 	my $arc_size = ${Kstat}->{zfs}->{0}->{arcstats}->{size};
-	my $arc_size_perc = 100*($arc_size / $target_max_size);
+	my $arc_size_perc = perc($arc_size,$target_max_size);
 
 	print "ARC Size:\n";
 	printf("\tCurrent Size (arcsize):\t\t%0.2f%%\t%s\n",
@@ -271,8 +277,8 @@ if ($showarc != 0) {
 	print "\nARC Size Breakdown:\n";
 	if ($arc_size > $target_size) {
 		my $mfu_size = ($arc_size - $mru_size);
-		my $mru_perc = 100*($mru_size / $arc_size);
-		my $mfu_perc = 100*($mfu_size / $arc_size);
+		my $mru_perc = perc($mru_size,$arc_size);
+		my $mfu_perc = perc($mfu_size,$arc_size);
 		printf("\tRecently Used Cache Size (p):\t%0.2f%%\t%s\n",
 			$mru_perc, convert_bytes($mru_size));
 		printf("\tFrequent;y Used Cache Size (arcsize-p):\t%0.2f%%\t%s\n",
@@ -281,8 +287,8 @@ if ($showarc != 0) {
 
 	if ($arc_size < $target_size) {
 		my $mfu_size = ($target_size - $mru_size);
-		my $mru_perc = 100*($mru_size / $target_size);
-		my $mfu_perc = 100*($mfu_size / $target_size);
+		my $mru_perc = perc($mru_size,$target_size);
+		my $mfu_perc = perc($mfu_size,$target_size);
 		printf("\tRecently Used Cache Size (p):\t%0.2f%%\t%s\n",
 			$mru_perc, convert_bytes($mru_size));
 		printf("\tFreq. Used Cache Size (c-p):\t%0.2f%%\t%s\n",
@@ -296,7 +302,7 @@ if ($showarc != 0) {
 	my $hash_collisions = ${Kstat}->{zfs}->{0}->{arcstats}->{hash_collisions};
 	my $hash_chains = ${Kstat}->{zfs}->{0}->{arcstats}->{hash_chains};
 	my $hash_chain_max = ${Kstat}->{zfs}->{0}->{arcstats}->{hash_chain_max};
-	my $hash_elements_perc = 100*($hash_elements / $hash_elements_max);
+	my $hash_elements_perc = perc($hash_elements,$hash_elements_max);
 
 	print "ARC Hash Breakdown:\n";
 	printf("\tElements Max:\t\t\t\t%d\n",
@@ -316,8 +322,8 @@ if ($showarc != 0) {
 	my $evict_l2_eligible = ${Kstat}->{zfs}->{0}->{arcstats}->{evict_l2_eligible};
 	my $evict_l2_ineligible = ${Kstat}->{zfs}->{0}->{arcstats}->{evict_l2_ineligible};
 	my $evict_l2_total = $evict_l2_eligible + $evict_l2_ineligible;
-	my $evict_l2_eligible_perc = 100*($evict_l2_eligible / $evict_l2_total);
-	my $evict_le_ineligible_perc = 100*($evict_l2_ineligible / $evict_l2_total);
+	my $evict_l2_eligible_perc = perc($evict_l2_eligible,$evict_l2_total);
+	my $evict_le_ineligible_perc = perc($evict_l2_ineligible,$evict_l2_total);
 
 	print "ARC Eviction Statistics:\n";
 	printf("\tEvicts Total:\t\t\t\t%d\n",
@@ -335,8 +341,8 @@ if ($showarc != 0) {
 	my $arc_misses = ${Kstat}->{zfs}->{0}->{arcstats}->{misses};
 	my $arc_accesses_total = ($arc_hits + $arc_misses);
 
-	my $arc_hit_perc = 100*($arc_hits / $arc_accesses_total);
-	my $arc_miss_perc = 100*($arc_misses / $arc_accesses_total);
+	my $arc_hit_perc = perc($arc_hits,$arc_accesses_total);
+	my $arc_miss_perc = perc($arc_misses,$arc_accesses_total);
 
 	my $mfu_hits = ${Kstat}->{zfs}->{0}->{arcstats}->{mfu_hits};
 	my $mru_hits = ${Kstat}->{zfs}->{0}->{arcstats}->{mru_hits};
@@ -345,24 +351,24 @@ if ($showarc != 0) {
 	my $anon_hits = $arc_hits - ($mfu_hits + $mru_hits + $mfu_ghost_hits + $mru_ghost_hits);
 
 	my $real_hits = ($mfu_hits + $mru_hits);
-	my $real_hits_perc = 100*($real_hits / $arc_accesses_total);
+	my $real_hits_perc = perc($real_hits,$arc_accesses_total);
 
 	### These should be based on TOTAL HITS ($arc_hits) ###
-	my $anon_hits_perc = 100*($anon_hits / $arc_hits);
-	my $mfu_hits_perc = 100*($mfu_hits / $arc_hits);
-	my $mru_hits_perc = 100*($mru_hits / $arc_hits);
-	my $mfu_ghost_hits_perc = 100*($mfu_ghost_hits / $arc_hits);
-	my $mru_ghost_hits_perc = 100*($mru_ghost_hits / $arc_hits);
+	my $anon_hits_perc = perc($anon_hits,$arc_hits);
+	my $mfu_hits_perc = perc($mfu_hits,$arc_hits);
+	my $mru_hits_perc = perc($mru_hits,$arc_hits);
+	my $mfu_ghost_hits_perc = perc($mfu_ghost_hits,$arc_hits);
+	my $mru_ghost_hits_perc = perc($mru_ghost_hits,$arc_hits);
 
 	my $demand_data_hits = ${Kstat}->{zfs}->{0}->{arcstats}->{demand_data_hits};
 	my $demand_metadata_hits = ${Kstat}->{zfs}->{0}->{arcstats}->{demand_metadata_hits};
 	my $prefetch_data_hits = ${Kstat}->{zfs}->{0}->{arcstats}->{prefetch_data_hits};
 	my $prefetch_metadata_hits = ${Kstat}->{zfs}->{0}->{arcstats}->{prefetch_metadata_hits};
 
-	my $demand_data_hits_perc = 100*($demand_data_hits / $arc_hits);
-	my $demand_metadata_hits_perc = 100*($demand_metadata_hits / $arc_hits);
-	my $prefetch_data_hits_perc = 100*($prefetch_data_hits / $arc_hits);
-	my $prefetch_metadata_hits_perc = 100*($prefetch_metadata_hits / $arc_hits);
+	my $demand_data_hits_perc = perc($demand_data_hits,$arc_hits);
+	my $demand_metadata_hits_perc = perc($demand_metadata_hits,$arc_hits);
+	my $prefetch_data_hits_perc = perc($prefetch_data_hits,$arc_hits);
+	my $prefetch_metadata_hits_perc = perc($prefetch_metadata_hits,$arc_hits);
 
 	my $demand_data_misses = ${Kstat}->{zfs}->{0}->{arcstats}->{demand_data_misses};
 	my $demand_metadata_misses = ${Kstat}->{zfs}->{0}->{arcstats}->{demand_metadata_misses};
@@ -370,19 +376,15 @@ if ($showarc != 0) {
 
 	my $prefetch_metadata_misses = ${Kstat}->{zfs}->{0}->{arcstats}->{prefetch_metadata_misses};
 
-	my $demand_data_misses_perc = 100*($demand_data_misses / $arc_misses);
-	my $demand_metadata_misses_perc = 100*($demand_metadata_misses / $arc_misses);
-	my $prefetch_data_misses_perc = 100*($prefetch_data_misses / $arc_misses);
-	my $prefetch_metadata_misses_perc = 100*($prefetch_metadata_misses / $arc_misses);
+	my $demand_data_misses_perc = perc($demand_data_misses,$arc_misses);
+	my $demand_metadata_misses_perc = perc($demand_metadata_misses,$arc_misses);
+	my $prefetch_data_misses_perc = perc($prefetch_data_misses,$arc_misses);
+	my $prefetch_metadata_misses_perc = perc($prefetch_metadata_misses,$arc_misses);
 
 	my $prefetch_data_total = ($prefetch_data_hits + $prefetch_data_misses);
-	my $prefetch_data_perc = "00";
-	if ($prefetch_data_total > 0) {
-	        $prefetch_data_perc = 100*($prefetch_data_hits / $prefetch_data_total);
-	}
-
+        my $prefetch_data_perc = perc($prefetch_data_hits,$prefetch_data_total);
 	my $demand_data_total = ($demand_data_hits + $demand_data_misses);
-	my $demand_data_perc = 100*($demand_data_hits / $demand_data_total);
+	my $demand_data_perc = perc($demand_data_hits,$demand_data_total);
 
 	print "ARC Efficiency:\n";
 	printf("\tCache Access Total:\t\t\t%d\n",
@@ -464,11 +466,11 @@ if ($showl2arc != 0) {
 	### L2 ARC ###
 	if ($l2_size > 0 & $l2_access_total > 0) {
 		### L2 ARC Stats Calculations ###
-		my $l2_hdr_size_perc = (100 * ( $l2_hdr_size / $l2_size ));
-		my $l2_hits_perc = (100 * ( $l2_hits / ( $l2_access_total )));
-		my $l2_misses_perc = (100 * ( $l2_misses / ( $l2_access_total )));
-		my $l2_writes_done_perc = (100 * ( $l2_writes_done / $l2_writes_sent ));
-		my $l2_writes_error_perc = (100 * ( $l2_writes_error / $l2_writes_sent ));
+		my $l2_hdr_size_perc = perc($l2_hdr_size,$l2_size);
+		my $l2_hits_perc = perc($l2_hits,$l2_access_total);
+		my $l2_misses_perc = perc($l2_misses,$l2_access_total);
+		my $l2_writes_done_perc = perc($l2_writes_done,$l2_writes_sent);
+		my $l2_writes_error_perc = perc($l2_writes_error,$l2_writes_sent);
 
 		hline();
 		print "L2 ARC Summary:\n";
@@ -550,9 +552,9 @@ if ($showvdev != 0) {
 	my $vdev_cache_misses = ${Kstat}->{zfs}->{0}->{vdev_cache_stats}->{misses};
 	my $vdev_cache_hits = ${Kstat}->{zfs}->{0}->{vdev_cache_stats}->{hits};
 	my $vdev_cache_total = ($vdev_cache_misses + $vdev_cache_hits);
-	my $vdev_cache_hits_perc = (100*($vdev_cache_hits / $vdev_cache_total));
-	my $vdev_cache_misses_perc = (100*($vdev_cache_misses / $vdev_cache_total));
-	my $vdev_cache_delegations_perc = (100*($vdev_cache_delegations / $vdev_cache_total));
+	my $vdev_cache_hits_perc = perc($vdev_cache_hits,$vdev_cache_total);
+	my $vdev_cache_misses_perc = perc($vdev_cache_misses,$vdev_cache_total);
+	my $vdev_cache_delegations_perc = perc($vdev_cache_delegations,$vdev_cache_total);
 
 	hline();
 	print "VDEV Cache Summary:\n";
@@ -594,12 +596,12 @@ if ($showdmu != 0) {
 	my $zfetch_stride_total = ( $zfetch_stride_hits + $zfetch_stride_misses );
 
 	if ($zfetch_access_total > 0) {
-		my $zfetch_hits_perc = (100 * ( $zfetch_hits / ( $zfetch_access_total )));
-		my $zfetch_misses_perc = (100 * ( $zfetch_misses / ( $zfetch_access_total )));
-		my $zfetch_colinear_hits_perc = (100 * ( $zfetch_colinear_hits / ( $zfetch_colinear_total )));
-		my $zfetch_colinear_misses_perc = (100 * ( $zfetch_colinear_misses / ( $zfetch_colinear_total )));
-		my $zfetch_stride_hits_perc = (100 * ( $zfetch_stride_hits / ( $zfetch_stride_total )));
-		my $zfetch_stride_misses_perc = (100 * ( $zfetch_stride_misses / ( $zfetch_stride_total )));
+		my $zfetch_hits_perc = perc($zfetch_hits,$zfetch_access_total);
+		my $zfetch_misses_perc = perc($zfetch_misses,$zfetch_access_total);
+		my $zfetch_colinear_hits_perc = perc($zfetch_colinear_hits,$zfetch_colinear_total);
+		my $zfetch_colinear_misses_perc = perc($zfetch_colinear_misses,$zfetch_colinear_total);
+		my $zfetch_stride_hits_perc = perc($zfetch_stride_hits,$zfetch_stride_total);
+		my $zfetch_stride_misses_perc = perc($zfetch_stride_misses,$zfetch_stride_total);
 
 		hline();
 		print "File-Level Prefetch Stats (DMU):\n\n";
