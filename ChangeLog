@@ -7,6 +7,13 @@
 # Copyright (c) 2010 Martin Matuska <mm@FreeBSD.org>
 # All rights reserved.
 #
+2011-07-20 <mm@FreeBSD.org>
+	* Sync up with jhell's arc_summary.pl rev. 388:e27800740aa2
+	* Split ARC summary (-A) and ARC efficiency (-E)
+	* Rename FreeBSD info (-F) into system info (-I)
+	* Drop support for Number::Bytes::Human
+	* Release version 1.1
+
 2010-10-23 <mm@FreeBSD.org>
 	* Avoid division by zero (reported by beat@FreeBSD.org)
 	* Import version 1.0 into SVN
