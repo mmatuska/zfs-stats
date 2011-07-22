@@ -2,11 +2,15 @@
 #
 # zfs-stats changelog
 #
-# Copyright (c) 2008 Ben Rockwood (benr@cuddletech.com)
-# Copyright (c) 2010 Jason J. Hellenthal <jhell@dataix.net>,
-# Copyright (c) 2010 Martin Matuska <mm@FreeBSD.org>
+# Copyright (c) 2011 Martin Matuska <mm@FreeBSD.org>
 # All rights reserved.
 #
+2011-07-22 <mm@FreeBSD.org>
+	* Remove "use Switch" (not utilized and incompatible with Perl 5.14)
+	* Update example, -b is a non-existing argument
+	* Add README.md
+	* Release version 1.1.1
+
 2011-07-20 <mm@FreeBSD.org>
 	* Sync up with jhell's arc_summary.pl rev. 388:e27800740aa2
 	* Split ARC summary (-A) and ARC efficiency (-E)
