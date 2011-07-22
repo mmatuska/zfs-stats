@@ -47,7 +47,6 @@
 
 use strict;
 use Getopt::Std;
-use Switch 'Perl5', 'Perl6';
 
 my $version = '1.1';
 
