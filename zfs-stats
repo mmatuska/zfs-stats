@@ -633,7 +633,7 @@ sub _vdev_summary {
 	my $vdev_cache_hits = $Kstat->{"kstat.zfs.misc.vdev_cache_stats.hits"};
 	my $vdev_cache_total = ($vdev_cache_misses + $vdev_cache_hits + $vdev_cache_delegations);
 
-	if ($Kstat->{"kstat.vfs.zfs.vdev.cache.size"} == 0) {
+	if ($Kstat->{"vfs.zfs.vdev.cache.size"} == 0) {
 		printf "VDEV cache is disabled\n";
 	} elsif ($vdev_cache_total > 0) {
 		printf("VDEV Cache Summary:\t\t\t\t%s\n", fHits($vdev_cache_total));
