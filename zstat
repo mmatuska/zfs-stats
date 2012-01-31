@@ -1,0 +1,494 @@
+#!/usr/local/bin/perl
+#
+# $Id$
+#
+# Copyright (c) 2010-2011 Martin Matuska <mm@FreeBSD.org>
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
+#
+# 1. Redistributions of source code must retain the above copyright
+#    notice, this list of conditions and the following disclaimer.
+# 2. Redistributions in binary form must reproduce the above copyright
+#    notice, this list of conditions and the following disclaimer in the
+#    documentation and/or other materials provided with the distribution.
+#
+# THIS SOFTWARE IS PROVIDED BY AUTHOR AND CONTRIBUTORS ``AS IS'' AND
+# ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED.  IN NO EVENT SHALL AUTHOR OR CONTRIBUTORS BE LIABLE
+# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+# OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+# HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+# OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+# SUCH DAMAGE.
+
+use strict;
+use Getopt::Std;
+use Data::Dumper;
+my $has_sysctl = eval "use BSD::Sysctl 'sysctl'; 1" ? 1 : 0;
+
+use constant {
+	VERSION => '1.0',
+	CLS => "\e[H\e[2J",
+	HIT => 0,
+	MISS => 1,
+	ARC => 0,
+	ARCDD => 1,
+	ARCDM => 2,
+	ARCPD => 3,
+	ARCPM => 4,
+	L2 => 5,
+	DMU => 6,
+	WANT_HIT => 1,
+	WANT_EFF => 2,
+	WANT_ARC => 4,
+	WANT_ARC_DEMAND => 8,
+	WANT_ARC_PREFETCH => 16,
+	WANT_L2 => 32,
+	WANT_DMU => 64,
+	WANT_TIME => 128,
+	WANT_ALL => 255
+};
+
+my @k;
+my @d;
+my @t;
+my @os;
+my @ns;
+my @tot;
+my @c1;
+my @c2;
+my @atot;
+my @a10;
+my @a60;
+
+my $c = 0;
+my $ac1 = 0;
+my $ac2 = 0;
+
+my @pt = [];
+my @p10 = [];
+my @p60 = [];
+
+my $accuracy = 100;
+my $interval = 1;
+my $repeat = 1;
+my $batch = 0;
+my $looping = 0;
+my $indent = 0;
+
+my $short = 0;
+my $raw = 0;
+my $flags = 0;
+my @vars;
+
+my @str;
+$str[ARC][0] = "ARC";
+$str[ARC][1] = "ARC";
+$str[ARCDD][0] = "ARC demand data";
+$str[ARCDD][1] = "ADD";
+$str[ARCDM][0] = "ARC demand metadata";
+$str[ARCDM][1] = "ADM";
+$str[ARCPD][0] = "ARC prefetch data";
+$str[ARCPD][1] = "APD";
+$str[ARCPM][0] = "ARC prefetch metadata";
+$str[ARCPM][1] = "APM";
+$str[L2][0] = "L2ARC";
+$str[L2][1] = "L2A";
+$str[DMU][0] = "ZFETCH";
+$str[DMU][1] = "DMU";
+
+$k[ARC][HIT] = 'kstat.zfs.misc.arcstats.hits';
+$k[ARC][MISS] = 'kstat.zfs.misc.arcstats.misses';
+$k[ARCDD][HIT] = 'kstat.zfs.misc.arcstats.demand_data_hits';
+$k[ARCDD][MISS] = 'kstat.zfs.misc.arcstats.demand_data_misses';
+$k[ARCDM][HIT] = 'kstat.zfs.misc.arcstats.demand_metadata_hits';
+$k[ARCDM][MISS] = 'kstat.zfs.misc.arcstats.demand_metadata_misses';
+$k[ARCPD][HIT] = 'kstat.zfs.misc.arcstats.prefetch_data_hits';
+$k[ARCPD][MISS] = 'kstat.zfs.misc.arcstats.prefetch_data_misses';
+$k[ARCPM][HIT] = 'kstat.zfs.misc.arcstats.prefetch_metadata_hits';
+$k[ARCPM][MISS] = 'kstat.zfs.misc.arcstats.prefetch_metadata_misses';
+$k[DMU][HIT] = 'kstat.zfs.misc.zfetchstats.hits';
+$k[DMU][MISS] = 'kstat.zfs.misc.zfetchstats.misses';
+$k[L2][HIT] = 'kstat.zfs.misc.arcstats.l2_hits';
+$k[L2][MISS] = 'kstat.zfs.misc.arcstats.l2_misses';
+
+sub _usage {
+	print STDERR << "EOF";
+Usage: $0 [-ADPLVZabehirs]
+
+-h      : this (help) message
+-V	: display version and exit
+-a      : display everything
+-b	: batch mode (collect, print and exit)
+-i	: display hits and misses
+-e	: display efficiency values
+-A      : include ARC statistics
+-D	: include ARC demand data statistics
+-P	: include ARC prefetch data statistics
+-L	: include L2 ARC statistics
+-Z      : include DMU (zfetch) statistics
+-I	: display update interval (in seconds)
+-T      : show elapsed time in seconds
+-s	: use short descriptions
+-r	: display raw data
+
+example: $0 -a
+EOF
+	exit;
+}
+
+sub trim($)
+{
+	my $string = shift;
+	$string =~ s/^[\s\r\n]+//;
+	$string =~ s/[\s\r\n]+$//;
+	return $string;
+}
+
+sub getstats {
+	my @ret;
+	my $o = 0;
+
+	if ($has_sysctl) {
+		if ($flags & WANT_ARC) {
+			$ret[ARC][HIT] = sysctl($k[ARC][HIT]);
+			$ret[ARC][MISS] = sysctl($k[ARC][MISS]);
+		}
+		if ($flags & WANT_ARC_DEMAND) {
+			$ret[ARCDD][HIT] = sysctl($k[ARCDD][HIT]);
+			$ret[ARCDD][MISS] = sysctl($k[ARCDD][MISS]);
+			$ret[ARCDM][HIT] = sysctl($k[ARCDM][HIT]);
+			$ret[ARCDM][MISS] = sysctl($k[ARCDM][MISS]);
+		}
+		if ($flags & WANT_ARC_PREFETCH) {
+			$ret[ARCPD][HIT] = sysctl($k[ARCPD][HIT]);
+			$ret[ARCPD][MISS] = sysctl($k[ARCPD][MISS]);
+			$ret[ARCPM][HIT] = sysctl($k[ARCPM][HIT]);
+			$ret[ARCPM][MISS] = sysctl($k[ARCPM][MISS]);
+		}
+		if ($flags & WANT_DMU) {
+			$ret[DMU][HIT] = sysctl($k[DMU][HIT]);
+			$ret[DMU][MISS] = sysctl($k[DMU][MISS]);
+		}
+		if ($flags & WANT_L2) {
+			$ret[L2][HIT] = sysctl($k[L2][HIT]);
+			$ret[L2][MISS] = sysctl($k[L2][MISS]);
+		}
+	} else {
+		my $cmd = "sysctl -n";
+		$cmd .= " $k[ARC][HIT] $k[ARC][MISS]";
+		$cmd .= " $k[ARCDD][HIT] $k[ARCDD][MISS]";
+		$cmd .= " $k[ARCDM][HIT] $k[ARCDM][MISS]";
+		$cmd .= " $k[ARCPD][HIT] $k[ARCPD][MISS]";
+		$cmd .= " $k[ARCPM][HIT] $k[ARCPM][MISS]";
+		$cmd .= " $k[DMU][HIT] $k[DMU][MISS]";
+		$cmd .= " $k[L2][HIT] $k[L2][MISS]";
+
+		my @ar = `$cmd`;
+
+		if ($flags & WANT_ARC) {
+			$ret[ARC][HIT] = trim($ar[0]);
+			$ret[ARC][MISS] = trim($ar[1]);
+		}
+
+		if ($flags & WANT_ARC_DEMAND) {
+			$ret[ARCDD][HIT] = trim($ar[2]);
+			$ret[ARCDD][MISS] = trim($ar[3]);
+			$ret[ARCDM][HIT] = trim($ar[4]);
+			$ret[ARCDM][MISS] = trim($ar[5]);
+		}
+		if ($flags & WANT_ARC_PREFETCH) {
+			$ret[ARCPD][HIT] = trim($ar[6]);
+			$ret[ARCPD][MISS] = trim($ar[7]);
+			$ret[ARCPM][HIT] = trim($ar[8]);
+			$ret[ARCPM][MISS] = trim($ar[9]);
+		}
+		if ($flags & WANT_DMU) {
+			$ret[DMU][HIT] = trim($ar[10]);
+			$ret[DMU][MISS] = trim($ar[11]);
+		}
+		if ($flags & WANT_L2) {
+			$ret[L2][HIT] = trim($ar[12]);
+			$ret[L2][MISS] = trim($ar[13]);
+		}
+	}
+	return @ret;
+}
+
+sub output {
+	my @outvars;
+	my $o1;
+	my $o2;
+	if ($flags & WANT_ARC) {
+		push(@outvars,ARC);
+	}
+	if ($flags & WANT_ARC_DEMAND) {
+		push(@outvars,ARCDD,ARCDM);
+	}
+	if ($flags & WANT_ARC_PREFETCH) {
+		push(@outvars,ARCPD,ARCPM);
+	}
+	if ($flags & WANT_L2) {
+		push(@outvars,L2);
+	}
+	if ($flags & WANT_DMU) {
+		push(@outvars,DMU);
+	}
+	foreach(@outvars) {
+	    if ($looping) {
+		if (($atot[$_][HIT] + $atot[$_][MISS]) > 0) {
+			$pt[$_] = int($atot[$_][HIT] / ($atot[$_][HIT] +
+			    $atot[$_][MISS]) * 100 * $accuracy + 0.5) /
+			    $accuracy;
+		} else {
+			$pt[$_] = 0;
+		}
+		if (($a10[$_][HIT] + $a10[$_][MISS]) > 0) {
+			$p10[$_] = int($a10[$_][HIT] / ($a10[$_][HIT] +
+			    $a10[$_][MISS]) * 100 * $accuracy + 0.5) /
+			    $accuracy;
+		} else {
+			$p10[$_] = 0;
+		}
+		if (($a60[$_][HIT] + $a60[$_][MISS]) > 0) {
+			$p60[$_] = int($a60[$_][HIT] / ($a60[$_][HIT] +
+			    $a60[$_][MISS]) * 100 * $accuracy + 0.5) /
+			    $accuracy;
+		} else {
+			$p60[$_] = 0;
+		}
+	    } else {
+		$pt[$_] = 0;
+		$p10[$_] = 0;
+		$p60[$_] = 0;
+	    }
+	}
+		
+	if (!$batch) {
+		print CLS;
+	}
+	print "ZFS real-time cache activity monitor\n";
+	if ($flags & WANT_TIME) {
+		printf "Seconds elapsed: %3d\n",$c;
+	}
+	if ($raw) {
+		$o1 = 0;
+		$o2 = 0;
+	} elsif ($short) {
+		$o1 = 5;
+		$o2 = 5;
+	} else {
+		$o1 = $indent + 9;
+		$o2 = $indent + 2;
+	}
+	if ($flags & WANT_HIT) {
+		print "\nCache hits and misses:\n";
+		printf "%${o1}s%6s %6s %6s %6s\n","","1s","10s","60s","tot";
+		foreach(@outvars) {
+			my $th = $raw ? "" :
+			    $str[$_][$short] . ( $short ? " h:" : " hits:" );
+			my $tm = $raw ? "" :
+			    $str[$_][$short] . ( $short ? " m:" : " misses:" );
+			printf "%${o1}s%6s %6d %6d %6d\n",
+			    $th,
+			    $t[$_][HIT], $a10[$_][HIT], $a60[$_][HIT],
+			    $atot[$_][HIT];
+			printf "%${o1}s%6s %6d %6d %6d\n",
+			    $tm,
+			    $t[$_][MISS], $a10[$_][MISS], $a60[$_][MISS],
+			    $atot[$_][MISS];
+		}
+	}
+	if ($flags & WANT_EFF) {
+		print "\nCache efficiency percentage:\n";
+		printf "%${o2}s%6s %6s %6s\n","","10s","60s","tot";
+		foreach(@outvars) {
+			my $tt = $raw ? "" : $str[$_][$short] . ": ";
+			printf "%${o2}s%6.2f %6.2f %6.2f\n",
+			    $tt, $p10[$_], $p60[$_], $pt[$_];
+		}
+	}
+}
+
+my %opt;
+my $opt_string = 'ADPLI:VTZabehirs';
+getopts( "$opt_string", \%opt ) or _usage();
+
+sub _version {
+	printf("zstat version %s\n", VERSION);
+	exit 0;
+}
+
+if ($opt{h}) { _usage; exit; }
+if ($opt{V}) { _version; exit; }
+if ($opt{a}) { $flags |= WANT_ALL }
+if ($opt{i}) { $flags |= WANT_HIT }
+if ($opt{e}) { $flags |= WANT_EFF }
+if ($opt{A}) { $flags |= WANT_ARC }
+if ($opt{D}) { $flags |= WANT_ARC_DEMAND }
+if ($opt{P}) { $flags |= WANT_ARC_PREFETCH }
+if ($opt{L}) { $flags |= WANT_L2 }
+if ($opt{T}) { $flags |= WANT_TIME }
+if ($opt{Z}) { $flags |= WANT_DMU }
+if ($opt{I}) { $interval = $opt{I}; }
+if ($opt{b}) { $batch = 1; }
+if ($opt{r}) { $raw = 1; }
+if ($opt{s}) { $short = 1; }
+
+if ($interval !~ /^\d+$/ ) {
+	print "Update interval must be an integer\n";
+	exit 1;
+}
+
+# Set defaults
+if ( !($flags & WANT_HIT) && !($flags & WANT_EFF)) {
+	$flags |= (WANT_EFF);
+}
+
+if (!($flags & WANT_ARC) && !($flags & WANT_L2) && !($flags & WANT_DMU)) {
+	$flags |= (WANT_ARC | WANT_L2 | WANT_DMU);
+}
+
+@os = getstats;
+
+if ($flags & WANT_ARC) {
+	if ($os[ARC][HIT] == 0) {
+		if (!$batch) {
+			print "ARC statistics not available\n";
+		}
+		$flags &= ~WANT_ARC;
+	} else {
+		my $len = length $str[ARC][0];
+		if ($indent < $len) { $indent = $len; }
+		push(@vars,ARC);
+	}
+}
+
+if ($flags & WANT_ARC_DEMAND) {
+	if ($os[ARCDD][HIT] == 0 || $os[ARCDM][HIT] == 0) {
+		if (!$batch) {
+			print "ARC demand data statistics not available\n";
+		}
+		$flags &= ~WANT_ARC_DEMAND;
+	} else {
+		my $len = length $str[ARCDM][0];
+		if ($indent < $len) { $indent = $len; }
+		push(@vars,ARCDD,ARCDM);
+	}
+}
+
+if ($flags & WANT_ARC_PREFETCH) {
+	if ($os[ARCPD][HIT] == 0 || $os[ARCPM][HIT] == 0) {
+		if (!$batch) {
+			print "ARC prefetch data statistics not available\n";
+		}
+		$flags &= ~WANT_ARC_PREFETCH;
+	} else {
+		my $len = length $str[ARCPM][0];
+		if ($indent < $len) { $indent = $len; }
+		push(@vars,ARCPD,ARCPM);
+	}
+}
+
+if ($flags & WANT_DMU) {
+	if ($os[DMU][HIT] == 0) {
+		if (!$batch) {
+			print "ZFETCH statistics not available\n";
+		}
+		$flags &= ~WANT_DMU;
+	} else {
+		my $len = length $str[DMU][0];
+		if ($indent < $len) { $indent = $len; }
+		push(@vars,DMU);
+	}
+}
+
+if ($flags & WANT_L2) {
+	if ($os[L2][HIT] == 0) {
+		if (!$batch) {
+			print "L2ARC statistics not available\n";
+		}
+		$flags &= ~WANT_L2;
+	} else {
+		my $len = length $str[L2][0];
+		if ($indent < $len) { $indent = $len; }
+		push(@vars,L2);
+	}
+}
+
+foreach(@vars) {
+	for (my $i=0; $i<2; $i++) {
+		$t[$_][$i] = 0;
+	}
+}
+
+if (!$batch) {
+	output();
+}
+sleep 1;
+
+while(1) {
+	my @tmp;
+	if ($looping) {
+		@os = @ns;
+	} else {
+		$looping = 1;
+	}
+	@ns = getstats;
+	foreach(@vars) {
+		for (my $i=0; $i<2; $i++) {
+			$tmp[$_][$i] = $ns[$_][$i] - $os[$_][$i];
+			$tot[$_][$i] += $tmp[$_][$i];
+			$c1[$_][$i] += $tmp[$_][$i];
+			$c2[$_][$i] += $tmp[$_][$i];
+		}
+	}
+
+	@t = @tmp;
+	push @d, [ @tmp ];
+	$c++;
+
+	if ($#d > 9) {
+		foreach(@vars) {
+			for (my $i=0; $i<2; $i++) {
+				$c1[$_][$i] -= $d[$#d-9][$_][$i];
+			}
+		}
+	} else {
+		$ac1++;
+	}
+	if ($#d > 59) {
+		foreach(@vars) {
+			for (my $i=0; $i<2; $i++) {
+				$c2[$_][$i] -= $d[0][$_][$i];
+			}
+		}
+		shift(@d);
+	} else {
+		$ac2++
+	}
+
+	foreach(@vars) {
+		for (my $i=0; $i<2; $i++) {
+			$atot[$_][$i] = int($tot[$_][$i]/$c + 0.5);
+			$a10[$_][$i] = int($c1[$_][$i]/$ac1 + 0.5);
+			$a60[$_][$i] = int($c2[$_][$i]/$ac2 + 0.5);
+		}
+	}
+
+	if ($repeat >= $interval) {
+		output();
+		if ($batch == 1) {
+			exit 0;
+		}
+		$repeat = 0;
+	}
+sleep 1;
+$repeat++;
+}
