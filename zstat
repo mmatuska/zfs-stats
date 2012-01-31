@@ -1,4 +1,4 @@
-#!/usr/local/bin/perl
+#!/usr/bin/env -iS perl
 #
 # $Id$
 #
@@ -181,7 +181,7 @@ sub getstats {
 			$ret[L2][MISS] = sysctl($k[L2][MISS]);
 		}
 	} else {
-		my $cmd = "sysctl -n";
+		my $cmd = "/sbin/sysctl -n";
 		$cmd .= " $k[ARC][HIT] $k[ARC][MISS]";
 		$cmd .= " $k[ARCDD][HIT] $k[ARCDD][MISS]";
 		$cmd .= " $k[ARCDM][HIT] $k[ARCDM][MISS]";
