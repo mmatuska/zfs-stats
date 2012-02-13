@@ -331,7 +331,7 @@ sub _arc_summary {
 	printf("\tDeleted:\t\t\t\t%s\n", fHits($deleted));
 	printf("\tRecycle Misses:\t\t\t\t%s\n", fHits($recycle_miss));
 	printf("\tMutex Misses:\t\t\t\t%s\n", fHits($mutex_miss));
-	printf("\tEvict Skips:\t\t\t\t%s\n", fHits($mutex_miss));
+	printf("\tEvict Skips:\t\t\t\t%s\n", fHits($evict_skip));
 	print "\n";
 
 	### ARC Sizing ###
