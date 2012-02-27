@@ -5,6 +5,11 @@
 # Copyright (c) 2011 Martin Matuska <mm@FreeBSD.org>
 # All rights reserved.
 #
+2012-02-27 <mm@FreeBSD.org>
+	* Add zstat, a real-time monitoring tool for ZFS cache
+	* Minor bugfixes
+	* Release version 1.2
+
 2011-07-22 <mm@FreeBSD.org>
 	* Remove "use Switch" (not utilized and incompatible with Perl 5.14)
 	* Update example, -b is a non-existing argument

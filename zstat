@@ -33,7 +33,7 @@ use Data::Dumper;
 my $has_sysctl = eval "use BSD::Sysctl 'sysctl'; 1" ? 1 : 0;
 
 use constant {
-	VERSION => '1.0',
+	VERSION => '1.2',
 	CLS => "\e[H\e[2J",
 	HIT => 0,
 	MISS => 1,
@@ -321,7 +321,7 @@ my $opt_string = 'ADPLI:VTZabehirs';
 getopts( "$opt_string", \%opt ) or _usage();
 
 sub _version {
-	printf("zstat version %s\n", VERSION);
+	printf("zstat (zfs-stats version %s)\n", VERSION);
 	exit 0;
 }
 
