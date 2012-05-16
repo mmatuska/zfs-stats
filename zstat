@@ -2,7 +2,7 @@
 #
 # $Id$
 #
-# Copyright (c) 2010-2011 Martin Matuska <mm@FreeBSD.org>
+# Copyright (c) 2010-2012 Martin Matuska <mm@FreeBSD.org>
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -33,7 +33,7 @@ use Data::Dumper;
 my $has_sysctl = eval "use BSD::Sysctl 'sysctl'; 1" ? 1 : 0;
 
 use constant {
-	VERSION => '1.2',
+	VERSION => '1.2.1',
 	CLS => "\e[H\e[2J",
 	HIT => 0,
 	MISS => 1,
@@ -44,6 +44,7 @@ use constant {
 	ARCPM => 4,
 	L2 => 5,
 	DMU => 6,
+	VDEV => 7,
 	WANT_HIT => 1,
 	WANT_EFF => 2,
 	WANT_ARC => 4,
@@ -51,8 +52,9 @@ use constant {
 	WANT_ARC_PREFETCH => 16,
 	WANT_L2 => 32,
 	WANT_DMU => 64,
-	WANT_TIME => 128,
-	WANT_ALL => 255
+	WANT_VDEV_PREFETCH => 128,
+	WANT_TIME => 256,
+	WANT_ALL => 511
 };
 
 my @k;
@@ -102,6 +104,8 @@ $str[L2][0] = "L2ARC";
 $str[L2][1] = "L2A";
 $str[DMU][0] = "ZFETCH";
 $str[DMU][1] = "DMU";
+$str[VDEV][0] = "VDEV prefetch";
+$str[VDEV][1] = "VDP";
 
 $k[ARC][HIT] = 'kstat.zfs.misc.arcstats.hits';
 $k[ARC][MISS] = 'kstat.zfs.misc.arcstats.misses';
@@ -117,6 +121,8 @@ $k[DMU][HIT] = 'kstat.zfs.misc.zfetchstats.hits';
 $k[DMU][MISS] = 'kstat.zfs.misc.zfetchstats.misses';
 $k[L2][HIT] = 'kstat.zfs.misc.arcstats.l2_hits';
 $k[L2][MISS] = 'kstat.zfs.misc.arcstats.l2_misses';
+$k[VDEV][HIT] = 'kstat.zfs.misc.vdev_cache_stats.hits';
+$k[VDEV][MISS] = 'kstat.zfs.misc.vdev_cache_stats.misses';
 
 sub _usage {
 	print STDERR << "EOF";
@@ -180,6 +186,10 @@ sub getstats {
 			$ret[L2][HIT] = sysctl($k[L2][HIT]);
 			$ret[L2][MISS] = sysctl($k[L2][MISS]);
 		}
+		if ($flags & WANT_L2) {
+			$ret[VDEV][HIT] = sysctl($k[VDEV][HIT]);
+			$ret[VDEV][MISS] = sysctl($k[VDEV][MISS]);
+		}
 	} else {
 		my $cmd = "/sbin/sysctl -n";
 		$cmd .= " $k[ARC][HIT] $k[ARC][MISS]";
@@ -189,6 +199,7 @@ sub getstats {
 		$cmd .= " $k[ARCPM][HIT] $k[ARCPM][MISS]";
 		$cmd .= " $k[DMU][HIT] $k[DMU][MISS]";
 		$cmd .= " $k[L2][HIT] $k[L2][MISS]";
+		$cmd .= " $k[VDEV][HIT] $k[VDEV][MISS]";
 
 		my @ar = `$cmd`;
 
@@ -217,6 +228,10 @@ sub getstats {
 			$ret[L2][HIT] = trim($ar[12]);
 			$ret[L2][MISS] = trim($ar[13]);
 		}
+		if ($flags & WANT_VDEV_PREFETCH) {
+			$ret[VDEV][HIT] = trim($ar[14]);
+			$ret[VDEV][MISS] = trim($ar[15]);
+		}
 	}
 	return @ret;
 }
@@ -239,6 +254,9 @@ sub output {
 	}
 	if ($flags & WANT_DMU) {
 		push(@outvars,DMU);
+	}
+	if ($flags & WANT_VDEV_PREFETCH) {
+		push(@outvars,VDEV);
 	}
 	foreach(@outvars) {
 	    if ($looping) {
@@ -317,7 +335,7 @@ sub output {
 }
 
 my %opt;
-my $opt_string = 'ADPLI:VTZabehirs';
+my $opt_string = 'ADPLI:VTZabehiprs';
 getopts( "$opt_string", \%opt ) or _usage();
 
 sub _version {
@@ -338,6 +356,7 @@ if ($opt{T}) { $flags |= WANT_TIME }
 if ($opt{Z}) { $flags |= WANT_DMU }
 if ($opt{I}) { $interval = $opt{I}; }
 if ($opt{b}) { $batch = 1; }
+if ($opt{p}) { $flags |= WANT_VDEV_PREFETCH }
 if ($opt{r}) { $raw = 1; }
 if ($opt{s}) { $short = 1; }
 
@@ -351,8 +370,8 @@ if ( !($flags & WANT_HIT) && !($flags & WANT_EFF)) {
 	$flags |= (WANT_EFF);
 }
 
-if (!($flags & WANT_ARC) && !($flags & WANT_L2) && !($flags & WANT_DMU)) {
-	$flags |= (WANT_ARC | WANT_L2 | WANT_DMU);
+if (!($flags & WANT_ARC) && !($flags & WANT_L2) && !($flags & WANT_DMU) && !($flags & WANT_VDEV_PREFETCH)) {
+	$flags |= (WANT_ARC | WANT_L2 | WANT_DMU | WANT_VDEV_PREFETCH);
 }
 
 @os = getstats;
@@ -406,6 +425,19 @@ if ($flags & WANT_DMU) {
 		my $len = length $str[DMU][0];
 		if ($indent < $len) { $indent = $len; }
 		push(@vars,DMU);
+	}
+}
+
+if ($flags & WANT_VDEV_PREFETCH) {
+	if ($os[VDEV][HIT] == 0) {
+		if (!$batch) {
+			print "VDEV prefetch statistics not available\n";
+		}
+		$flags &= ~WANT_VDEV_PREFETCH;
+	} else {
+		my $len = length $str[VDEV][0];
+		if ($indent < $len) { $indent = $len; }
+		push(@vars,VDEV);
 	}
 }
 
