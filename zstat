@@ -186,7 +186,7 @@ sub getstats {
 			$ret[L2][HIT] = sysctl($k[L2][HIT]);
 			$ret[L2][MISS] = sysctl($k[L2][MISS]);
 		}
-		if ($flags & WANT_L2) {
+		if ($flags & WANT_VDEV_PREFETCH) {
 			$ret[VDEV][HIT] = sysctl($k[VDEV][HIT]);
 			$ret[VDEV][MISS] = sysctl($k[VDEV][MISS]);
 		}
