@@ -48,7 +48,7 @@
 use strict;
 use Getopt::Std;
 
-my $version = '1.2.1';
+my $version = '1.2.2';
 
 my $usetunable = 1;			# Change to 0 to disable sysctl MIB spill.
 my $show_sysctl_descriptions = 0;	# Change to 1 (or use the -d flag) to show sysctl descriptions.
