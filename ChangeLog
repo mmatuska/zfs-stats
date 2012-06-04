@@ -5,6 +5,10 @@
 # Copyright (c) 2012 Martin Matuska <mm@FreeBSD.org>
 # All rights reserved.
 #
+2012-06-04 <mm@FreeBSD.org>
+	* Rename zstat to zfs-mon to not collide with zephyr
+	* Release version 1.2.2
+
 2012-05-16 <mm@FreeBSD.org>
 	* Add vdev cache statistis to zstat
 	* Release version 1.2.1
