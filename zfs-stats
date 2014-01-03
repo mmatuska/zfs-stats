@@ -98,45 +98,31 @@ sub div1 {
 
 sub div2 { div1; print "\n"; }
 
+my @binary_prefix = (
+	['YiB', 2 ** 80],
+	['ZiB', 2 ** 70],
+	['EiB', 2 ** 60],
+	['PiB', 2 ** 50],
+	['TiB', 2 ** 40],
+	['GiB', 2 ** 30],
+	['MiB', 2 ** 20],
+	['KiB', 2 ** 10],
+);
 sub fBytes {
-	if ($raw_data) { return $_[0] };
+	my ( $Bytes, $Decimal ) = @_;
+	if ($raw_data) { return $Bytes };
 
-	my $Bytes = $_[0] || 0;
 	defined($Bytes) or $Bytes = 0;
-
-	my $Decimal = $_[1] || 2;
 	defined($Decimal) or $Decimal = 2;
 
-	my $kbytes = (2**10);
-	my $mbytes = (2**20);
-	my $gbytes = (2**30);
-	my $tbytes = (2**40);
-	my $pbytes = (2**50);
-	my $ebytes = (2**60);
-	my $zbytes = (2**70);
-	my $ybytes = (2**80);
+	for( @binary_prefix ){
+		my($prefix,$cmp) = @$_;
 
-	if ($Bytes >= $ybytes) {
-		return sprintf('%0.' . $Decimal . 'f', ($Bytes / $ybytes)) . "\tYiB";
-	} elsif ($Bytes >= $zbytes) {
-		return sprintf('%0.' . $Decimal . 'f', ($Bytes / $zbytes)) . "\tZiB";
-	} elsif ($Bytes >= $ebytes) {
-		return sprintf('%0.' . $Decimal . 'f', ($Bytes / $ebytes)) . "\tEiB";
-	} elsif ($Bytes >= $pbytes) {
-		return sprintf('%0.' . $Decimal . 'f', ($Bytes / $pbytes)) . "\tPiB";
-	} elsif ($Bytes >= $tbytes) {
-		return sprintf('%0.' . $Decimal . 'f', ($Bytes / $tbytes)) . "\tTiB";
-	} elsif ($Bytes >= $gbytes) {
-		return sprintf('%0.' . $Decimal . 'f', ($Bytes / $gbytes)) . "\tGiB";
-	} elsif ($Bytes >= $mbytes) {
-		return sprintf('%0.' . $Decimal . 'f', ($Bytes / $mbytes)) . "\tMiB";
-	} elsif ($Bytes >= $kbytes) {
-		return sprintf( '%0.' . $Decimal . 'f', ($Bytes / $kbytes)) . "\tKiB";
-	} elsif ($Bytes == 0) {
-		return sprintf('%d', 0 . "\tBytes");
-	} else {
-		return sprintf('%d', $Bytes) . "\tBytes";
+		next if $Bytes < $cmp;
+		return sprintf("%0.${Decimal}f\t%s", $Bytes / $cmp, $prefix );
 	}
+
+	return "$Bytes\tBytes";
 }
 
 sub fHits {
