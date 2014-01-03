@@ -125,42 +125,31 @@ sub fBytes {
 	return "$Bytes\tBytes";
 }
 
+my @hits_compare = (
+	['S', 10**24],
+	['s', 10**21],
+	['Q', 10**18],
+	['q', 10**15],
+	['t', 10**12],
+	['b', 10**9 ],
+	['m', 10**6 ],
+	['k', 10**3 ],
+);
 sub fHits {
+	my ( $Hits, $Decimal ) = @_;
 	if ($raw_data) { return $_[0] }
 
-	my $khits = (10**3);
-	my $mhits = (10**6);
-	my $bhits = (10**9);
-	my $thits = (10**12);
-	my $qhits = (10**15);
-	my $Qhits = (10**18);
-	my $shits = (10**21);
-	my $Shits = (10**24);
-
-	my $Hits = $_[0] || 0;
 	defined($Hits) or $Hits = 0;
-
-	my $Decimal = $_[1] || 2;
 	defined($Decimal) or $Decimal = 2;
 
-	if ($Hits >= $Shits) {
-		return sprintf('%0.' . $Decimal . 'f', ($Hits / $Shits)) . "S";
-	} elsif ($Hits >= $shits) {
-		return sprintf('%0.' . $Decimal . 'f', ($Hits / $shits)) . "s";
-	} elsif ($Hits >= $Qhits) {
-		return sprintf('%0.' . $Decimal . 'f', ($Hits / $Qhits)) . "Q";
-	} elsif ($Hits >= $qhits) {
-		return sprintf('%0.' . $Decimal . 'f', ($Hits / $qhits)) . "q";
-	} elsif ($Hits >= $thits) {
-		return sprintf('%0.' . $Decimal . 'f', ($Hits / $thits)) . "t";
-	} elsif ($Hits >= $bhits) {
-		return sprintf('%0.' . $Decimal . 'f', ($Hits / $bhits)) . "b";
-	} elsif ($Hits >= $mhits) {
-		return sprintf('%0.' . $Decimal . 'f', ($Hits / $mhits)) . "m";
-	} elsif ($Hits >= $khits) {
-		return sprintf('%0.' . $Decimal . 'f', ($Hits / $khits)) . "k";
-	} elsif ($Hits == 0) { return sprintf("%d", 0);
-	} else { return sprintf("%d", $Hits); }
+	for( @hits_compare ){
+		my($prefix,$cmp) = @$_;
+
+		next if $Hits < $cmp;
+		return sprintf("%0.${Decimal}f\t%s", $Hits / $cmp, $prefix );
+	}
+
+	return $Hits;
 }
 
 sub fPerc {
