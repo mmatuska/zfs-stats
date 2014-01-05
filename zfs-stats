@@ -50,7 +50,24 @@ my $usetunable = 1;			# Change to 0 to disable sysctl MIB spill.
 my $show_sysctl_descriptions = 0;	# Change to 1 (or use the -d flag) to show sysctl descriptions.
 my $alternate_sysctl_layout = 0;	# Change to 1 (or use the -t flag) for alternate output.
 my $raw_data;				# Raw data
-	
+
+my %cmds = (
+	sysctl_q   => '/sbin/sysctl -q',
+	uname_v  => 'uname -v',
+	uptime   => 'uptime',
+	kldstat  => 'kldstat',
+	vmstat_m => '/usr/bin/vmstat -m',
+);
+
+sub run{
+	my $cmd = shift;
+	if( exists $cmds{$cmd} ){
+		$cmd = $cmds{$cmd};
+	}
+
+	return `$cmd @_`;
+}
+
 sub _usage {
 	print STDERR << "EOF";
 Usage: $0 [-ABDHLMSabdhus]
@@ -179,7 +196,7 @@ my @Kstats = qw(
 );
 
 my $Kstat;
-my @Kstat_pull = `/sbin/sysctl -q @Kstats`;
+my @Kstat_pull = run( 'sysctl_q', @Kstats );
 foreach my $kstat (@Kstat_pull) {
 	chomp $kstat;
 	if ($kstat =~ m/^([^:]+):\s+(.+)\s*$/s) {
@@ -200,11 +217,11 @@ sub _start {
 }
 
 sub _system_info {
-	my $unamev = `uname -v`;
+	my $unamev = run('uname_v');
 	$unamev =~ s/@.*//;
 	chomp $unamev;
 	$unamev =~ s/\s+/ /g;
-	my $sysuptime = `uptime`;
+	my $sysuptime = run('uptime');
 	print "System Information:\n";
 	print "\n";
 	printf("\tKernel Version:\t\t\t\t%d (osreldate)\n", $Kstat->{"kern.osreldate"});
@@ -265,11 +282,11 @@ sub _system_memory {
 	printf("\tLogical Free:\t\t\t%s\t%s\n", fPerc($mem_avail, $mem_total), fBytes($mem_avail));
 	print "\n";
 
-	my @ktext = map { hex( (split)[3] ) } `kldstat`; # retrieve the size column and convert from hex
+	my @ktext = map { hex( (split)[3] ) } run('kldstat'); # retrieve the size column and convert from hex
 	my $ktext;
 	$ktext += $_ for @ktext; # add the elements of size up
 
-	my @kdata = map { /([0-9]+)K/ } `/usr/bin/vmstat -m`; # retrieve the MemUse column
+	my @kdata = map { /([0-9]+)K/ } run('vmstat_m'); # retrieve the MemUse column
 	my $kdata;
 	$kdata += $_ for @kdata; # add the elements of MemUse up
 	$kdata *= 1024; # convert from KiB to Bytes
@@ -636,14 +653,14 @@ sub _sysctl_summary {
 	);
 	my %sysctl_descriptions;
 	if ($show_sysctl_descriptions) {
-		foreach my $tunable (`/sbin/sysctl -qde @Tunable`){
+		foreach my $tunable ( run('sysctl_q','-de', @Tunable) ){
 			chomp $tunable;
 			my ($name, $description) = split(/=/, $tunable, 2);
 			$description = "Description unavailable" unless $description;
 			$sysctl_descriptions{$name}=$description;
 		}
 	}
-	my @tunable = `/sbin/sysctl -qe @Tunable`;
+	my @tunable = run('sysctl_q', '-e', @Tunable);
 	print "ZFS Tunables (sysctl):\n";
 	foreach my $tunable (@tunable){
 		chomp($tunable);
