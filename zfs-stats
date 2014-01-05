@@ -653,21 +653,21 @@ sub _sysctl_summary {
 	}
 }
 
-my @unSub = qw(
-	_system_info
-	_system_memory
-	_arc_summary
-	_arc_efficiency
-	_l2arc_summary
-	_dmu_summary
-	_vdev_summary
-	_sysctl_summary
+my @unSub = (
+	\&_system_info,
+	\&_system_memory,
+	\&_arc_summary,
+	\&_arc_efficiency,
+	\&_l2arc_summary,
+	\&_dmu_summary,
+	\&_vdev_summary,
+	\&_sysctl_summary,
 );
 
 sub _call_all {
 	my $page = 1;
 	foreach my $unsub (@unSub) {
-		eval $unsub;
+		$unsub->();
 		div2;
 	}
 }
