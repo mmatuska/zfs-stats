@@ -684,23 +684,24 @@ if (%opt) {
 	$show_sysctl_descriptions = 1 if $opt{d};
 	$raw_data = 1 if $opt{R};
 
+	my @out;
 	if ($opt{a}) {
 		_start; _call_all; exit;
 	} else {
 		if ($opt{h}) { _usage; exit; }
 		if ($opt{V}) { _version; exit; }
-		if ($opt{I}) { $out .= "_system_info; div2;" }
-		if ($opt{M}) { $out .= "_system_memory; div2;" }
-		if ($opt{A}) { $out .= "_arc_summary; div2;" }
-		if ($opt{E}) { $out .= "_arc_efficiency; div2;" }
-		if ($opt{L}) { $out .= "_l2arc_summary; div2;" }
-		if ($opt{Z}) { $out .= "_dmu_summary; div2;" }
-		if ($opt{D}) { $out .= "_vdev_summary; div2;" }
-		if ($opt{s}) { $out .= "_sysctl_summary; div2;" }
+		if ($opt{I}) { push @out, \&_system_info, \&div2 }
+		if ($opt{M}) { push @out, \&_system_memory, \&div2 }
+		if ($opt{A}) { push @out, \&_arc_summary, \&div2 }
+		if ($opt{E}) { push @out, \&_arc_efficiency, \&div2 }
+		if ($opt{L}) { push @out, \&_l2arc_summary, \&div2 }
+		if ($opt{Z}) { push @out, \&_dmu_summary, \&div2 }
+		if ($opt{D}) { push @out, \&_vdev_summary, \&div2 }
+		if ($opt{s}) { push @out, \&_sysctl_summary, \&div2 }
 	}
-	if (!$out) { _usage; exit; }
+	if (!@out) { _usage; exit; }
 	_start;
-	eval $out;
+	$_->() for @out;
 } else {
 	_usage;
 }
