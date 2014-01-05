@@ -270,7 +270,11 @@ sub _system_memory {
 	print "\n";
 
 	my $ktext = `/sbin/kldstat |/usr/bin/awk \'BEGIN {print "16i 0";} NR>1 {print toupper(\$4) "+"} END {print "p"}\' |/usr/bin/dc`;
-	my $kdata = `/usr/bin/vmstat -m |/usr/bin/sed -Ee '1s/.*/0/;s/.* ([0-9]+)K.*/\\1+/;\$s/\$/1024*p/' |/usr/bin/dc`;
+	my @kdata = map { /([0-9]+)K/ } `/usr/bin/vmstat -m`; # retrieve the MemUse column
+	my $kdata;
+	$kdata += $_ for @kdata; # add the elements of MemUse up
+	$kdata *= 1024; # convert from KiB to Bytes
+
 	my $kmem = ($ktext + $kdata);
 	my $kmem_map_size = $Kstat->{"vm.kmem_map_size"};
 	my $kmem_map_free = $Kstat->{"vm.kmem_map_free"};
