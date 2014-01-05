@@ -39,11 +39,7 @@
 #
 # Binaries used are:
 #
-# dc(1), kldstat(8), sed(1), sysctl(8) & vmstat(8)
-#
-# Binaries that I am working on phasing out are:
-#
-# dc(1) & sed(1)
+# kldstat(8), sysctl(8) & vmstat(8)
 
 use strict;
 use Getopt::Std;
