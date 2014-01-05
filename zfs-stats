@@ -207,7 +207,10 @@ sub _start {
 }
 
 sub _system_info {
-	my $unamev = `uname -v |sed 's/@.*//' |xargs`;
+	my $unamev = `uname -v`;
+	$unamev =~ s/@.*//;
+	chomp $unamev;
+	$unamev =~ s/\s+/ /g;
 	my $sysuptime = `uptime`;
 	print "System Information:\n";
 	print "\n";
