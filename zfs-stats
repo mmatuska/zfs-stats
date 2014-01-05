@@ -269,7 +269,10 @@ sub _system_memory {
 	printf("\tLogical Free:\t\t\t%s\t%s\n", fPerc($mem_avail, $mem_total), fBytes($mem_avail));
 	print "\n";
 
-	my $ktext = `/sbin/kldstat |/usr/bin/awk \'BEGIN {print "16i 0";} NR>1 {print toupper(\$4) "+"} END {print "p"}\' |/usr/bin/dc`;
+	my @ktext = map { hex( (split)[3] ) } `kldstat`; # retrieve the size column and convert from hex
+	my $ktext;
+	$ktext += $_ for @ktext; # add the elements of size up
+
 	my @kdata = map { /([0-9]+)K/ } `/usr/bin/vmstat -m`; # retrieve the MemUse column
 	my $kdata;
 	$kdata += $_ for @kdata; # add the elements of MemUse up
