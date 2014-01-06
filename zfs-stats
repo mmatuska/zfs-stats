@@ -675,7 +675,7 @@ sub _sysctl_summary {
 	}
 }
 
-my @unSub = (
+my @unSub = map { $_, \&div2 }(
 	\&_system_info,
 	\&_system_memory,
 	\&_arc_summary,
@@ -686,14 +686,6 @@ my @unSub = (
 	\&_sysctl_summary,
 );
 
-sub _call_all {
-	my $page = 1;
-	foreach my $unsub (@unSub) {
-		$unsub->();
-		div2;
-	}
-}
-
 my %opt;
 GetOptions( \%opt, qw"A D E I|F L M R|B V Z a d h t u s" );
 
@@ -703,7 +695,7 @@ $raw_data = 1 if $opt{R};
 
 my @out;
 if ($opt{a}) {
-	_start; _call_all; exit;
+	@out = @unSub;
 } else {
 	if ($opt{h}) { _usage; exit; }
 	if ($opt{V}) { _version; exit; }
