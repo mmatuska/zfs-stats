@@ -5,6 +5,10 @@
 # Copyright (c) 2012 Martin Matuska <mm@FreeBSD.org>
 # All rights reserved.
 #
+2013-01-05 <b2gills@gmail.com>
+	* Remove use of sed awk and dc, and add ability to use ssh to get info
+	  from a different computer	
+	
 2012-06-04 <mm@FreeBSD.org>
 	* Rename zstat to zfs-mon to not collide with zephyr
 	* Release version 1.2.2

@@ -46,7 +46,7 @@ use warnings;
 use Getopt::Long;
 Getopt::Long::Configure ("bundling");
 
-my $version = '1.2.2';
+my $version = '1.3.0';
 
 my $usetunable = 1;			# Change to 0 to disable sysctl MIB spill.
 my $show_sysctl_descriptions = 0;	# Change to 1 (or use the -d flag) to show sysctl descriptions.
