@@ -696,9 +696,11 @@ my @unSub = map { $_, \&div2 }(
 
 my %opt;
 GetOptions( \%opt,
-	qw"A D E I|F L M R|B V Z a d h t u s",
+	qw"A D E I|F L M R|B Z a d t u s",
+	h => \&_usage,   # exits
+	V => \&_version, # exits
 	qw"hostname=s user=s id_file=s port=s",
-);
+) || _usage;
 
 for( grep { length > 1 } keys %opt ){
 	$ssh{$_} = $opt{$_}
@@ -725,8 +727,6 @@ my @out;
 if ($opt{a}) {
 	@out = @unSub;
 } else {
-	if ($opt{h}) { _usage; exit; }
-	if ($opt{V}) { _version; exit; }
 	if ($opt{I}) { push @out, \&_system_info, \&div2 }
 	if ($opt{M}) { push @out, \&_system_memory, \&div2 }
 	if ($opt{A}) { push @out, \&_arc_summary, \&div2 }
