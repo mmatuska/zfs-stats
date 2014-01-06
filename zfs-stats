@@ -696,32 +696,28 @@ sub _call_all {
 
 my %opt;
 GetOptions( \%opt, qw"A D E I|F L M R|B V Z a d h t u s" );
-if (%opt) {
-	my $out;
-	$alternate_sysctl_layout = 1 if $opt{t};
-	$show_sysctl_descriptions = 1 if $opt{d};
-	$raw_data = 1 if $opt{R};
 
-	my @out;
-	if ($opt{a}) {
-		_start; _call_all; exit;
-	} else {
-		if ($opt{h}) { _usage; exit; }
-		if ($opt{V}) { _version; exit; }
-		if ($opt{I}) { push @out, \&_system_info, \&div2 }
-		if ($opt{M}) { push @out, \&_system_memory, \&div2 }
-		if ($opt{A}) { push @out, \&_arc_summary, \&div2 }
-		if ($opt{E}) { push @out, \&_arc_efficiency, \&div2 }
-		if ($opt{L}) { push @out, \&_l2arc_summary, \&div2 }
-		if ($opt{Z}) { push @out, \&_dmu_summary, \&div2 }
-		if ($opt{D}) { push @out, \&_vdev_summary, \&div2 }
-		if ($opt{s}) { push @out, \&_sysctl_summary, \&div2 }
-	}
-	if (!@out) { _usage; exit; }
-	_start;
-	$_->() for @out;
+$alternate_sysctl_layout = 1 if $opt{t};
+$show_sysctl_descriptions = 1 if $opt{d};
+$raw_data = 1 if $opt{R};
+
+my @out;
+if ($opt{a}) {
+	_start; _call_all; exit;
 } else {
-	_usage;
+	if ($opt{h}) { _usage; exit; }
+	if ($opt{V}) { _version; exit; }
+	if ($opt{I}) { push @out, \&_system_info, \&div2 }
+	if ($opt{M}) { push @out, \&_system_memory, \&div2 }
+	if ($opt{A}) { push @out, \&_arc_summary, \&div2 }
+	if ($opt{E}) { push @out, \&_arc_efficiency, \&div2 }
+	if ($opt{L}) { push @out, \&_l2arc_summary, \&div2 }
+	if ($opt{Z}) { push @out, \&_dmu_summary, \&div2 }
+	if ($opt{D}) { push @out, \&_vdev_summary, \&div2 }
+	if ($opt{s}) { push @out, \&_sysctl_summary, \&div2 }
 }
+if (!@out) { _usage; exit; }
+_start;
+$_->() for @out;
 
 __END__
