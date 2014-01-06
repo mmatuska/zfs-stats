@@ -39,14 +39,12 @@
 #
 # Binaries used are:
 #
-# dc(1), kldstat(8), sed(1), sysctl(8) & vmstat(8)
-#
-# Binaries that I am working on phasing out are:
-#
-# dc(1) & sed(1)
+# kldstat(8), sysctl(8) & vmstat(8)
 
 use strict;
-use Getopt::Std;
+use warnings;
+use Getopt::Long;
+Getopt::Long::Configure ("bundling");
 
 my $version = '1.2.2';
 
@@ -54,7 +52,36 @@ my $usetunable = 1;			# Change to 0 to disable sysctl MIB spill.
 my $show_sysctl_descriptions = 0;	# Change to 1 (or use the -d flag) to show sysctl descriptions.
 my $alternate_sysctl_layout = 0;	# Change to 1 (or use the -t flag) for alternate output.
 my $raw_data;				# Raw data
-	
+
+my $Kstat;
+
+my %cmds = (
+	sysctl_q   => '/sbin/sysctl -q',
+	uname_v  => 'uname -v',
+	uptime   => 'uptime',
+	kldstat  => 'kldstat',
+	vmstat_m => '/usr/bin/vmstat -m',
+);
+
+my %ssh;
+
+sub run{
+	my $cmd = shift;
+	if( exists $cmds{$cmd} ){
+		$cmd = $cmds{$cmd};
+	}
+
+	my @ssh;
+	if( $ssh{hostname} ){
+		push @ssh, 'ssh', $ssh{hostname};
+		push @ssh, '-l', $ssh{user}    if $ssh{user};
+		push @ssh, '-i', $ssh{id_file} if $ssh{id_file};
+		push @ssh, '-p', $ssh{port}    if $ssh{port};
+	}
+
+	return `@ssh $cmd @_`;
+}
+
 sub _usage {
 	print STDERR << "EOF";
 Usage: $0 [-ABDHLMSabdhus]
@@ -78,6 +105,16 @@ Usage: $0 [-ABDHLMSabdhus]
 -h	: display this (help) message
 
 example: $0 -a
+
+Additionally this command can give you information
+on another computer through ssh.
+
+--hostname  : address or hostname of the remote computer
+--port      : port of the ssh server on the remote computer
+--user      : user name on the remote computer
+--id_file   : path to the identity file to use
+
+example: $0 -a --hostname server.local --user somebody
 EOF
 	exit;
 }
@@ -89,92 +126,64 @@ sub _version {
 
 sub div1 {
 	print "\n";
-	my $i = 1; my $l = 18;
-	while ( $i <= $l ) {
-		printf("%s", "----"); $i++;
-	}
+	print '-' x 72;
 	print "\n";
 }
 
 sub div2 { div1; print "\n"; }
 
+my @binary_prefix = (
+	['YiB', 2 ** 80],
+	['ZiB', 2 ** 70],
+	['EiB', 2 ** 60],
+	['PiB', 2 ** 50],
+	['TiB', 2 ** 40],
+	['GiB', 2 ** 30],
+	['MiB', 2 ** 20],
+	['KiB', 2 ** 10],
+);
 sub fBytes {
-	if ($raw_data) { return $_[0] };
+	my ( $Bytes, $Decimal ) = @_;
+	if ($raw_data) { return $Bytes };
 
-	my $Bytes = $_[0] || 0;
 	defined($Bytes) or $Bytes = 0;
-
-	my $Decimal = $_[1] || 2;
 	defined($Decimal) or $Decimal = 2;
 
-	my $kbytes = (2**10);
-	my $mbytes = (2**20);
-	my $gbytes = (2**30);
-	my $tbytes = (2**40);
-	my $pbytes = (2**50);
-	my $ebytes = (2**60);
-	my $zbytes = (2**70);
-	my $ybytes = (2**80);
+	for( @binary_prefix ){
+		my($prefix,$cmp) = @$_;
 
-	if ($Bytes >= $ybytes) {
-		return sprintf('%0.' . $Decimal . 'f', ($Bytes / $ybytes)) . "\tYiB";
-	} elsif ($Bytes >= $zbytes) {
-		return sprintf('%0.' . $Decimal . 'f', ($Bytes / $zbytes)) . "\tZiB";
-	} elsif ($Bytes >= $ebytes) {
-		return sprintf('%0.' . $Decimal . 'f', ($Bytes / $ebytes)) . "\tEiB";
-	} elsif ($Bytes >= $pbytes) {
-		return sprintf('%0.' . $Decimal . 'f', ($Bytes / $pbytes)) . "\tPiB";
-	} elsif ($Bytes >= $tbytes) {
-		return sprintf('%0.' . $Decimal . 'f', ($Bytes / $tbytes)) . "\tTiB";
-	} elsif ($Bytes >= $gbytes) {
-		return sprintf('%0.' . $Decimal . 'f', ($Bytes / $gbytes)) . "\tGiB";
-	} elsif ($Bytes >= $mbytes) {
-		return sprintf('%0.' . $Decimal . 'f', ($Bytes / $mbytes)) . "\tMiB";
-	} elsif ($Bytes >= $kbytes) {
-		return sprintf( '%0.' . $Decimal . 'f', ($Bytes / $kbytes)) . "\tKiB";
-	} elsif ($Bytes == 0) {
-		return sprintf('%d', 0 . "\tBytes");
-	} else {
-		return sprintf('%d', $Bytes) . "\tBytes";
+		next if $Bytes < $cmp;
+		return sprintf("%0.${Decimal}f\t%s", $Bytes / $cmp, $prefix );
 	}
+
+	return "$Bytes\tBytes";
 }
 
+my @hits_compare = (
+	['S', 10**24],
+	['s', 10**21],
+	['Q', 10**18],
+	['q', 10**15],
+	['t', 10**12],
+	['b', 10**9 ],
+	['m', 10**6 ],
+	['k', 10**3 ],
+);
 sub fHits {
+	my ( $Hits, $Decimal ) = @_;
 	if ($raw_data) { return $_[0] }
 
-	my $khits = (10**3);
-	my $mhits = (10**6);
-	my $bhits = (10**9);
-	my $thits = (10**12);
-	my $qhits = (10**15);
-	my $Qhits = (10**18);
-	my $shits = (10**21);
-	my $Shits = (10**24);
-
-	my $Hits = $_[0] || 0;
 	defined($Hits) or $Hits = 0;
-
-	my $Decimal = $_[1] || 2;
 	defined($Decimal) or $Decimal = 2;
 
-	if ($Hits >= $Shits) {
-		return sprintf('%0.' . $Decimal . 'f', ($Hits / $Shits)) . "S";
-	} elsif ($Hits >= $shits) {
-		return sprintf('%0.' . $Decimal . 'f', ($Hits / $shits)) . "s";
-	} elsif ($Hits >= $Qhits) {
-		return sprintf('%0.' . $Decimal . 'f', ($Hits / $Qhits)) . "Q";
-	} elsif ($Hits >= $qhits) {
-		return sprintf('%0.' . $Decimal . 'f', ($Hits / $qhits)) . "q";
-	} elsif ($Hits >= $thits) {
-		return sprintf('%0.' . $Decimal . 'f', ($Hits / $thits)) . "t";
-	} elsif ($Hits >= $bhits) {
-		return sprintf('%0.' . $Decimal . 'f', ($Hits / $bhits)) . "b";
-	} elsif ($Hits >= $mhits) {
-		return sprintf('%0.' . $Decimal . 'f', ($Hits / $mhits)) . "m";
-	} elsif ($Hits >= $khits) {
-		return sprintf('%0.' . $Decimal . 'f', ($Hits / $khits)) . "k";
-	} elsif ($Hits == 0) { return sprintf("%d", 0);
-	} else { return sprintf("%d", $Hits); }
+	for( @hits_compare ){
+		my($prefix,$cmp) = @$_;
+
+		next if $Hits < $cmp;
+		return sprintf("%0.${Decimal}f\t%s", $Hits / $cmp, $prefix );
+	}
+
+	return $Hits;
 }
 
 sub fPerc {
@@ -210,20 +219,6 @@ my @Kstats = qw(
 	vfs.zfs
 );
 
-my $Kstat;
-my @Kstat_pull = `/sbin/sysctl -q @Kstats`;
-foreach my $kstat (@Kstat_pull) {
-	chomp $kstat;
-	if ($kstat =~ m/^([^:]+):\s+(.+)\s*$/s) {
-		$Kstat->{$1} = $2;
-	};
-};
-
-if (!$Kstat->{"vfs.zfs.version.spa"}) {
-	printf(STDERR "ZFS module not loaded\n");
-	exit 1;
-};
-
 sub _start {
 	my $daydate = localtime; chomp $daydate;
 	div1;
@@ -232,8 +227,11 @@ sub _start {
 }
 
 sub _system_info {
-	my $unamev = `uname -v |sed 's/@.*//' |xargs`;
-	my $sysuptime = `uptime`;
+	my $unamev = run('uname_v');
+	$unamev =~ s/@.*//;
+	chomp $unamev;
+	$unamev =~ s/\s+/ /g;
+	my $sysuptime = run('uptime');
 	print "System Information:\n";
 	print "\n";
 	printf("\tKernel Version:\t\t\t\t%d (osreldate)\n", $Kstat->{"kern.osreldate"});
@@ -294,8 +292,15 @@ sub _system_memory {
 	printf("\tLogical Free:\t\t\t%s\t%s\n", fPerc($mem_avail, $mem_total), fBytes($mem_avail));
 	print "\n";
 
-	my $ktext = `/sbin/kldstat |/usr/bin/awk \'BEGIN {print "16i 0";} NR>1 {print toupper(\$4) "+"} END {print "p"}\' |/usr/bin/dc`;
-	my $kdata = `/usr/bin/vmstat -m |/usr/bin/sed -Ee '1s/.*/0/;s/.* ([0-9]+)K.*/\\1+/;\$s/\$/1024*p/' |/usr/bin/dc`;
+	my @ktext = map { hex( (split)[3] ) } run('kldstat'); # retrieve the size column and convert from hex
+	my $ktext;
+	$ktext += $_ for @ktext; # add the elements of size up
+
+	my @kdata = map { /([0-9]+)K/ } run('vmstat_m'); # retrieve the MemUse column
+	my $kdata;
+	$kdata += $_ for @kdata; # add the elements of MemUse up
+	$kdata *= 1024; # convert from KiB to Bytes
+
 	my $kmem = ($ktext + $kdata);
 	my $kmem_map_size = $Kstat->{"vm.kmem_map_size"};
 	my $kmem_map_free = $Kstat->{"vm.kmem_map_free"};
@@ -658,14 +663,14 @@ sub _sysctl_summary {
 	);
 	my %sysctl_descriptions;
 	if ($show_sysctl_descriptions) {
-		foreach my $tunable (`/sbin/sysctl -qde @Tunable`){
+		foreach my $tunable ( run('sysctl_q','-de', @Tunable) ){
 			chomp $tunable;
 			my ($name, $description) = split(/=/, $tunable, 2);
 			$description = "Description unavailable" unless $description;
 			$sysctl_descriptions{$name}=$description;
 		}
 	}
-	my @tunable = `/sbin/sysctl -qe @Tunable`;
+	my @tunable = run('sysctl_q', '-e', @Tunable);
 	print "ZFS Tunables (sysctl):\n";
 	foreach my $tunable (@tunable){
 		chomp($tunable);
@@ -678,56 +683,61 @@ sub _sysctl_summary {
 	}
 }
 
-my @unSub = qw(
-	_system_info
-	_system_memory
-	_arc_summary
-	_arc_efficiency
-	_l2arc_summary
-	_dmu_summary
-	_vdev_summary
-	_sysctl_summary
+my @unSub = map { $_, \&div2 }(
+	\&_system_info,
+	\&_system_memory,
+	\&_arc_summary,
+	\&_arc_efficiency,
+	\&_l2arc_summary,
+	\&_dmu_summary,
+	\&_vdev_summary,
+	\&_sysctl_summary,
 );
 
-sub _call_all {
-	my $page = 1;
-	foreach my $unsub (@unSub) {
-		eval $unsub;
-		div2;
-	}
-}
-
 my %opt;
-getopts("ABDEFILMRVZadhtus", \%opt);
-if (%opt) {
-	## Compat with previous version
-	$opt{I} = 1 if $opt{F};
-	$opt{R} = 1 if $opt{B};
-	##
-	my $out;
-	$alternate_sysctl_layout = 1 if $opt{t};
-	$show_sysctl_descriptions = 1 if $opt{d};
-	$raw_data = 1 if $opt{R};
+GetOptions( \%opt,
+	qw"A D E I|F L M R|B Z a d t u s",
+	h => \&_usage,   # exits
+	V => \&_version, # exits
+	qw"hostname=s user=s id_file=s port=s",
+) || _usage;
 
-	if ($opt{a}) {
-		_start; _call_all; exit;
-	} else {
-		if ($opt{h}) { _usage; exit; }
-		if ($opt{V}) { _version; exit; }
-		if ($opt{I}) { $out .= "_system_info; div2;" }
-		if ($opt{M}) { $out .= "_system_memory; div2;" }
-		if ($opt{A}) { $out .= "_arc_summary; div2;" }
-		if ($opt{E}) { $out .= "_arc_efficiency; div2;" }
-		if ($opt{L}) { $out .= "_l2arc_summary; div2;" }
-		if ($opt{Z}) { $out .= "_dmu_summary; div2;" }
-		if ($opt{D}) { $out .= "_vdev_summary; div2;" }
-		if ($opt{s}) { $out .= "_sysctl_summary; div2;" }
-	}
-	if (!$out) { _usage; exit; }
-	_start;
-	eval $out;
-} else {
-	_usage;
+for( grep { length > 1 } keys %opt ){
+	$ssh{$_} = $opt{$_}
 }
+
+$alternate_sysctl_layout = 1 if $opt{t};
+$show_sysctl_descriptions = 1 if $opt{d};
+$raw_data = 1 if $opt{R};
+
+my @Kstat_pull = run( 'sysctl_q', @Kstats );
+foreach my $kstat (@Kstat_pull) {
+	chomp $kstat;
+	if ($kstat =~ m/^([^:]+):\s+(.+)\s*$/s) {
+		$Kstat->{$1} = $2;
+	};
+};
+
+if (!$Kstat->{"vfs.zfs.version.spa"}) {
+	printf(STDERR "ZFS module not loaded\n");
+	exit 1;
+};
+
+my @out;
+if ($opt{a}) {
+	@out = @unSub;
+} else {
+	if ($opt{I}) { push @out, \&_system_info, \&div2 }
+	if ($opt{M}) { push @out, \&_system_memory, \&div2 }
+	if ($opt{A}) { push @out, \&_arc_summary, \&div2 }
+	if ($opt{E}) { push @out, \&_arc_efficiency, \&div2 }
+	if ($opt{L}) { push @out, \&_l2arc_summary, \&div2 }
+	if ($opt{Z}) { push @out, \&_dmu_summary, \&div2 }
+	if ($opt{D}) { push @out, \&_vdev_summary, \&div2 }
+	if ($opt{s}) { push @out, \&_sysctl_summary, \&div2 }
+}
+if (!@out) { _usage; exit; }
+_start;
+$_->() for @out;
 
 __END__
