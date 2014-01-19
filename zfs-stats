@@ -292,7 +292,7 @@ sub _system_memory {
 	printf("\tLogical Free:\t\t\t%s\t%s\n", fPerc($mem_avail, $mem_total), fBytes($mem_avail));
 	print "\n";
 
-	my @ktext = map { hex( (split)[3] ) } run('kldstat'); # retrieve the size column and convert from hex
+	my @ktext = map { /0x/ && hex( (split)[3] ) } run('kldstat'); # retrieve the size column and convert from hex
 	my $ktext;
 	$ktext += $_ for @ktext; # add the elements of size up
 
