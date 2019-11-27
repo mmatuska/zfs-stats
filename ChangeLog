@@ -2,9 +2,14 @@
 #
 # zfs-stats changelog
 #
-# Copyright (c) 2012 Martin Matuska <mm@FreeBSD.org>
+# Copyright (c) 2012-2019 Martin Matuska <mm@FreeBSD.org>
 # All rights reserved.
 #
+2019-11-27 <mm@FreeBSD.org>
+	* fix parsing output from kldstat
+	* do not try to read removed zfetch variables
+	* Release version 1.3.0
+
 2013-01-05 <b2gills@gmail.com>
 	* Remove use of sed awk and dc, and add ability to use ssh to get info
 	  from a different computer	
