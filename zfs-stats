@@ -354,17 +354,16 @@ sub _arc_summary {
 	my $deleted = $Kstat->{"kstat.zfs.misc.arcstats.deleted"};
 	my $evict_skip = $Kstat->{"kstat.zfs.misc.arcstats.evict_skip"};
 	my $mutex_miss = $Kstat->{"kstat.zfs.misc.arcstats.mutex_miss"};
-	my $recycle_miss = $Kstat->{"kstat.zfs.misc.arcstats.recycle_miss"};
 
 	print "ARC Misc:\n";
 	printf("\tDeleted:\t\t\t\t%s\n", fHits($deleted));
-	printf("\tRecycle Misses:\t\t\t\t%s\n", fHits($recycle_miss));
 	printf("\tMutex Misses:\t\t\t\t%s\n", fHits($mutex_miss));
 	printf("\tEvict Skips:\t\t\t\t%s\n", fHits($evict_skip));
 	print "\n";
 
 	### ARC Sizing ###
 	my $arc_size = $Kstat->{"kstat.zfs.misc.arcstats.size"};
+	my $arc_uncompressed_size = $Kstat->{"kstat.zfs.misc.arcstats.uncompressed_size"};
 	my $mru_size = $Kstat->{"kstat.zfs.misc.arcstats.p"};
 	my $target_max_size = $Kstat->{"kstat.zfs.misc.arcstats.c_max"};
 	my $target_min_size = $Kstat->{"kstat.zfs.misc.arcstats.c_min"};
@@ -380,6 +379,11 @@ sub _arc_summary {
 		fPerc($target_min_size, $target_max_size), fBytes($target_min_size));
 	printf("\tMax Size (High Water):\t\t%d:1\t%s\n",
 		$target_size_ratio, fBytes($target_max_size));
+	printf("\tDecompressed Data Size:\t\t\t%s\n",
+		fBytes($arc_uncompressed_size));
+	printf("\tCompression Factor:\t\t\t%s\n",
+		fRatio($arc_uncompressed_size, $arc_size));
+
 
 	print "\nARC Size Breakdown:\n";
 	if ($arc_size > $target_size) {
@@ -448,7 +452,7 @@ sub _arc_efficiency {
 	printf("\tData Demand Efficiency:\t\t%s\t%s\n",
 		fPerc($demand_data_hits, $demand_data_total), fHits($demand_data_total));
 
-	if ($prefetch_data_total > 0){ 
+	if ($prefetch_data_total > 0){
 		printf("\tData Prefetch Efficiency:\t%s\t%s\n",
 			fPerc($prefetch_data_hits, $prefetch_data_total), fHits($prefetch_data_total));
 	}
@@ -548,7 +552,7 @@ sub _l2arc_summary {
 	print "\n";
 
 	printf("L2 ARC Size: (Adaptive)\t\t\t\t%s\n", fBytes($l2_asize));
-	printf("\tUncompressed Data:\t\t\t%s\n", fBytes($l2_size));
+	printf("\tDecompressed Data Size:\t\t\t%s\n", fBytes($l2_size));
 	printf("\tCompression Factor:\t\t\t%s\n", fRatio($l2_size, $l2_asize));
 	printf("\tHeader Size:\t\t\t%s\t%s\n",
 		fPerc($l2_hdr_size, $l2_size), fBytes($l2_hdr_size));
