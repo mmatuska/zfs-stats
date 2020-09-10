@@ -522,14 +522,13 @@ sub _l2arc_summary {
 	my $l2_write_full = $Kstat->{"kstat.zfs.misc.arcstats.l2_write_full"};
 	my $l2_write_in_l2 = $Kstat->{"kstat.zfs.misc.arcstats.l2_write_in_l2"};
 	my $l2_write_io_in_progress = $Kstat->{"kstat.zfs.misc.arcstats.l2_write_io_in_progress"};
-	my $l2_write_not_cacheable = $Kstat->{"kstat.zfs.misc.arcstats.l2_write_not_cacheable"};
+	#my $l2_write_not_cacheable = $Kstat->{"kstat.zfs.misc.arcstats.l2_write_not_cacheable"};
 	my $l2_write_passed_headroom = $Kstat->{"kstat.zfs.misc.arcstats.l2_write_passed_headroom"};
-	my $l2_write_pios = $Kstat->{"kstat.zfs.misc.arcstats.l2_write_pios"};
+	#my $l2_write_pios = $Kstat->{"kstat.zfs.misc.arcstats.l2_write_pios"};
 	my $l2_write_spa_mismatch = $Kstat->{"kstat.zfs.misc.arcstats.l2_write_spa_mismatch"};
 	my $l2_write_trylock_fail = $Kstat->{"kstat.zfs.misc.arcstats.l2_write_trylock_fail"};
 	my $l2_writes_done = $Kstat->{"kstat.zfs.misc.arcstats.l2_writes_done"};
 	my $l2_writes_error = $Kstat->{"kstat.zfs.misc.arcstats.l2_writes_error"};
-	my $l2_writes_hdr_miss = $Kstat->{"kstat.zfs.misc.arcstats.l2_writes_hdr_miss"};
 	my $l2_writes_sent = $Kstat->{"kstat.zfs.misc.arcstats.l2_writes_sent"};
 
 	my $l2_access_total = ($l2_hits + $l2_misses);
