@@ -539,16 +539,23 @@ sub _l2arc_summary {
 	if ($l2_health_count > 0) {
 		print "(DEGRADED)\n";
 	} else { print "(HEALTHY)\n"; }
-	printf("\tPassed Headroom:\t\t\t%s\n", fHits($l2_write_passed_headroom));
-	printf("\tTried Lock Failures:\t\t\t%s\n", fHits($l2_write_trylock_fail));
-	printf("\tIO In Progress:\t\t\t\t%s\n", fHits($l2_write_io_in_progress));
+
+	if (not $IsOpenZFS) {
+		printf("\tPassed Headroom:\t\t\t%s\n", fHits($l2_write_passed_headroom));
+		printf("\tTried Lock Failures:\t\t\t%s\n", fHits($l2_write_trylock_fail));
+		printf("\tIO In Progress:\t\t\t\t%s\n", fHits($l2_write_io_in_progress));
+	}
 	printf("\tLow Memory Aborts:\t\t\t%s\n", fHits($l2_abort_lowmem));
 	printf("\tFree on Write:\t\t\t\t%s\n", fHits($l2_free_on_write));
-	printf("\tWrites While Full:\t\t\t%s\n", fHits($l2_write_full));
+	if (not $IsOpenZFS) {
+		printf("\tWrites While Full:\t\t\t%s\n", fHits($l2_write_full));
+	}
 	printf("\tR/W Clashes:\t\t\t\t%s\n", fHits($l2_rw_clash));
 	printf("\tBad Checksums:\t\t\t\t%s\n", fHits($l2_cksum_bad));
 	printf("\tIO Errors:\t\t\t\t%s\n", fHits($l2_io_error));
-	printf("\tSPA Mismatch:\t\t\t\t%s\n", fHits($l2_write_spa_mismatch));
+	if (not $IsOpenZFS) {
+		printf("\tSPA Mismatch:\t\t\t\t%s\n", fHits($l2_write_spa_mismatch));
+	}
 	print "\n";
 
 	printf("L2 ARC Size: (Adaptive)\t\t\t\t%s\n", fBytes($l2_asize));
@@ -572,12 +579,14 @@ sub _l2arc_summary {
 	printf("\tFeeds:\t\t\t\t\t%s\n", fHits($l2_feeds));
 	print "\n";
 
-	print "L2 ARC Buffer:\n";
-	printf("\tBytes Scanned:\t\t\t\t%s\n", fBytes($l2_write_buffer_bytes_scanned));
-	printf("\tBuffer Iterations:\t\t\t%s\n", fHits($l2_write_buffer_iter));
-	printf("\tList Iterations:\t\t\t%s\n", fHits($l2_write_buffer_list_iter));
-	printf("\tNULL List Iterations:\t\t\t%s\n", fHits($l2_write_buffer_list_null_iter));
-	print "\n";
+	if (not $IsOpenZFS) {
+		print "L2 ARC Buffer:\n";
+		printf("\tBytes Scanned:\t\t\t\t%s\n", fBytes($l2_write_buffer_bytes_scanned));
+		printf("\tBuffer Iterations:\t\t\t%s\n", fHits($l2_write_buffer_iter));
+		printf("\tList Iterations:\t\t\t%s\n", fHits($l2_write_buffer_list_iter));
+		printf("\tNULL List Iterations:\t\t\t%s\n", fHits($l2_write_buffer_list_null_iter));
+		print "\n";
+	}
 
 	print "L2 ARC Writes:\n";
 	if ($l2_writes_done != $l2_writes_sent) {
