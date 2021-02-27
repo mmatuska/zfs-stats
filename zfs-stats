@@ -98,6 +98,7 @@ Usage: $0 [-ABDHLMSabdhus]
 -E	: ARC efficiency
 -D	: VDEV cache statistics
 -L	: L2 ARC statistics
+-O	: dataset operations statistics
 -Z	: DMU (zfetch) statistics
 
 -R	: display raw numbers and bytes
@@ -634,6 +635,56 @@ sub _vdev_summary {
 	}
 }
 
+sub _dataset_summary {
+	if ($IsOpenZFS) {
+		my @poolnames = run('zpool', 'list', '-H', '-oname');
+		foreach my $poolname (@poolnames) {
+			chomp($poolname);
+			my @Kstat_pull = run( 'sysctl_q', "kstat.zfs.$poolname.dataset" );
+			my %objset;
+			foreach my $kstat (@Kstat_pull) {
+				chomp $kstat;
+				if ($kstat =~ m/^([^:]+):\s+(.+)\s*$/s) {
+					$Kstat->{$1} = $2;
+					my @fields = split(/\./, $1);
+					if ($fields[5] eq "dataset_name") {
+						my $dataset = $2;
+						$objset{$dataset} = $fields[4];
+					}
+				}
+			}
+			foreach my $dataset (sort(keys(%objset))) {
+				my $objset = $objset{$dataset};
+				my $pfx = "kstat.zfs.$poolname.dataset.$objset";
+				my $dataset_reads = $Kstat->{"$pfx.reads"};
+				my $dataset_nread = $Kstat->{"$pfx.nread"};
+				my $dataset_writes = $Kstat->{"$pfx.writes"};
+				my $dataset_nwritten = $Kstat->{"$pfx.nwritten"};
+				my $dataset_nunlinks = $Kstat->{"$pfx.nunlinks"};
+				my $dataset_ops = $dataset_reads + $dataset_writes + $dataset_nunlinks;
+				my $dataset_amount = $dataset_nread + $dataset_nwritten;
+				if ($dataset_ops > 0) {
+					printf("Dataset statistics for:\t%s\n\n", $dataset);
+					printf("\tReads:\t\t%s\t%s\n",
+						fPerc($dataset_reads, $dataset_ops), fHits($dataset_reads));
+					printf("\tWrites:\t\t%s\t%s\n",
+						fPerc($dataset_writes, $dataset_ops), fHits($dataset_writes));
+					printf("\tUnlinks:\t%s\t%s\n",
+						fPerc($dataset_nunlinks, $dataset_ops), fHits($dataset_nunlinks));
+					printf("\n");
+					printf("\tBytes read:\t%s\t%s\n",
+						fPerc($dataset_nread, $dataset_amount), fHits($dataset_nread));
+					printf("\tBytes written:\t%s\t%s\n",
+						fPerc($dataset_nwritten, $dataset_amount), fHits($dataset_nwritten));
+					printf("\n");
+				}
+			}
+		}
+	} else {
+		printf "Per dataset statistics are not available\n";
+	}
+}
+
 sub _sysctl_summary {
 	return unless $usetunable;
 	my @Tunable = qw(
@@ -672,6 +723,7 @@ my @unSub = map { $_, \&div2 }(
 	\&_arc_summary,
 	\&_arc_efficiency,
 	\&_l2arc_summary,
+	\&_dataset_summary,
 	\&_dmu_summary,
 	\&_vdev_summary,
 	\&_sysctl_summary,
@@ -679,7 +731,7 @@ my @unSub = map { $_, \&div2 }(
 
 my %opt;
 GetOptions( \%opt,
-	qw"A D E I|F L M R|B Z a d t u s",
+	qw"A D E I|F L M O R|B Z a d t u s",
 	h => \&_usage,   # exits
 	V => \&_version, # exits
 	qw"hostname=s user=s id_file=s port=s",
@@ -715,6 +767,7 @@ if ($opt{a}) {
 	if ($opt{A}) { push @out, \&_arc_summary, \&div2 }
 	if ($opt{E}) { push @out, \&_arc_efficiency, \&div2 }
 	if ($opt{L}) { push @out, \&_l2arc_summary, \&div2 }
+	if ($opt{O}) { push @out, \&_dataset_summary, \&div2 }
 	if ($opt{Z}) { push @out, \&_dmu_summary, \&div2 }
 	if ($opt{D}) { push @out, \&_vdev_summary, \&div2 }
 	if ($opt{s}) { push @out, \&_sysctl_summary, \&div2 }
