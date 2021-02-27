@@ -44,6 +44,8 @@
 use strict;
 use warnings;
 use Getopt::Long;
+use Scalar::Util qw(looks_like_number);
+
 Getopt::Long::Configure ("bundling");
 
 my $version = '1.3.1';
@@ -709,7 +711,8 @@ sub _sysctl_summary {
 	foreach my $tunable (@tunable){
 		chomp($tunable);
 		my ($name, $value) = split(/=/, $tunable, 2);
-		my $format = $alternate_sysctl_layout ? "\t%s=%d\n" : "\t%-40s%d\n";
+		my $typefmt = looks_like_number($value) ? "%d" : "%s";
+		my $format = $alternate_sysctl_layout ? "\t%s=$typefmt\n" : "\t%-40s$typefmt\n";
 		if ($show_sysctl_descriptions != 0){
 			printf("\t\# %s\n", $sysctl_descriptions{$name});
 		}
