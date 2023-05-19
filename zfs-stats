@@ -48,7 +48,7 @@ use Scalar::Util qw(looks_like_number);
 
 Getopt::Long::Configure ("bundling");
 
-my $version = '1.3.1';
+my $version = '1.3.2';
 
 my $usetunable = 1;			# Change to 0 to disable sysctl MIB spill.
 my $show_sysctl_descriptions = 0;	# Change to 1 (or use the -d flag) to show sysctl descriptions.
@@ -368,7 +368,7 @@ sub _arc_summary {
 	my $arc_size = $Kstat->{"kstat.zfs.misc.arcstats.size"};
 	my $arc_compressed_size = $Kstat->{"kstat.zfs.misc.arcstats.compressed_size"};
 	my $arc_uncompressed_size = $Kstat->{"kstat.zfs.misc.arcstats.uncompressed_size"};
-	my $mru_size = $Kstat->{"kstat.zfs.misc.arcstats.p"};
+	my $mru_size = $Kstat->{"kstat.zfs.misc.arcstats.p"} || $Kstat->{"kstat.zfs.misc.arcstats.mru_size"};
 	my $target_max_size = $Kstat->{"kstat.zfs.misc.arcstats.c_max"};
 	my $target_min_size = $Kstat->{"kstat.zfs.misc.arcstats.c_min"};
 	my $target_size = $Kstat->{"kstat.zfs.misc.arcstats.c"};
