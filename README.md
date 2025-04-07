@@ -12,11 +12,11 @@ and human-readable statistics for the following subsystems:
 
 Help: `zfs-stats -h`
 
-In the ports tree: [sysutils/zfs-stats][1]
+In the ports tree: [filesystems/zfs-stats][1]
 
 Homepage: https://www.vx.sk/zfs-stats/
 
 This script is a fork of [arc_summary.pl][2] by Jason Hellenthal.
 
-[1]: https://www.freshports.org/sysutils/zfs-stats/
+[1]: https://www.freshports.org/filesystems/zfs-stats/
 [2]: https://github.com/DataIX/main/tree/master/head/scripts/zfs/arc_summary
