@@ -236,7 +236,6 @@ my @Kstats = qw(
 	kstat.zfs.misc.vdev_cache_stats
 	kstat.zfs.misc.vdev_mirror_stats
 	kstat.zfs.misc.vdev_raidz_bench
-	kstat.zfs.misc.xuio_stats
 	kstat.zfs.misc.zfetchstats
 	kstat.zfs.misc.zil
 	kstat.zfs.misc.zstd
