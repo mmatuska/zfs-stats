@@ -62,7 +62,7 @@ my %cmds = (
 	uname_v  => 'uname -v',
 	uptime   => 'uptime',
 	kldstat  => 'kldstat',
-	vmstat_m => '/usr/bin/vmstat -m',
+	vmstat_m => '/usr/bin/vmstat -mH',
 );
 
 my %ssh;
@@ -323,10 +323,9 @@ sub _system_memory {
 	my $ktext;
 	$ktext += $_ for @ktext; # add the elements of size up
 
-	my @kdata = map { /([0-9]+)K/ } run('vmstat_m'); # retrieve the MemUse column
-	my $kdata;
+	my @kdata = map { /\s+[0-9]+\s+([0-9]+)/ } run('vmstat_m'); # retrieve the MemUse column
+	my $kdata = 0;
 	$kdata += $_ for @kdata; # add the elements of MemUse up
-	$kdata *= 1024; # convert from KiB to Bytes
 
 	my $kmem = ($ktext + $kdata);
 	my $kmem_map_size = $Kstat->{"vm.kmem_map_size"};
