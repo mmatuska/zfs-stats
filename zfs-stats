@@ -246,7 +246,7 @@ my $IsOpenZFS = 1;
 
 sub _start {
 	my $daydate = localtime; chomp $daydate;
-	$IsOpenZFS = defined($Kstat->{"vfs.zfs.vdev.cache_size"});
+	$IsOpenZFS = defined($Kstat->{"vfs.zfs.version.module"});
 	div1;
 	printf("ZFS Subsystem Report\t\t\t\t%s", $daydate);
 	div2;
@@ -620,14 +620,17 @@ sub _dmu_summary {
 }
 
 sub _vdev_summary {
+	if (!$Kstat->{ $IsOpenZFS ? "vfs.zfs.vdev.cache_size" : "vfs.zfs.vdev.cache.size" }) {
+		printf "VDEV cache is disabled\n";
+		return;
+	}
+ 
 	my $vdev_cache_delegations = $Kstat->{"kstat.zfs.misc.vdev_cache_stats.delegations"};
 	my $vdev_cache_misses = $Kstat->{"kstat.zfs.misc.vdev_cache_stats.misses"};
 	my $vdev_cache_hits = $Kstat->{"kstat.zfs.misc.vdev_cache_stats.hits"};
 	my $vdev_cache_total = ($vdev_cache_misses + $vdev_cache_hits + $vdev_cache_delegations);
 
-	if (($IsOpenZFS ? $Kstat->{"vfs.zfs.vdev.cache_size"} : $Kstat->{"vfs.zfs.vdev.cache.size"}) == 0) {
-		printf "VDEV cache is disabled\n";
-	} elsif ($vdev_cache_total > 0) {
+	if ($vdev_cache_total > 0) {
 		printf("VDEV Cache Summary:\t\t\t\t%s\n", fHits($vdev_cache_total));
 		printf("\tHit Ratio:\t\t\t%s\t%s\n",
 			fPerc($vdev_cache_hits, $vdev_cache_total), fHits($vdev_cache_hits));
